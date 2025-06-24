@@ -50,7 +50,7 @@ public partial class BarcodeReader : IAsyncDisposable
     /// 选择设备按钮文本/Select device button title
     /// </summary>
     [Parameter]
-    public string SelectDeviceBtnTitle { get; set; } = "选择设备";
+    public string SelectDeviceBtnTitle { get; set; } = string.Empty;
 
     /// <summary>
     /// 扫码结果回调方法/Scan result callback method
