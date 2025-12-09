@@ -7,14 +7,16 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis; 
+using System.Diagnostics.CodeAnalysis;
+
+
 
 namespace ZXingBlazor.Components;
 
 /// <summary>
 /// 条码扫描 BarcodeScanner
 /// </summary>
-public partial class BarcodeReader : IAsyncDisposable
+public partial class BarcodeReader : ComponentBase, IAsyncDisposable
 {
 
     [Inject]
@@ -139,49 +141,54 @@ public partial class BarcodeReader : IAsyncDisposable
         try
         {
             if (!firstRender) return;
-            Storage ??= new StorageService(JSRuntime);
-            Module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/ZXingBlazor/BarcodeReader.razor.js" + "?v=" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
-            Instance = DotNetObjectReference.Create(this);
-            try
-            {
-                if (SaveDeviceID) DeviceID = await Storage.GetValue("CamsDeviceID", DeviceID);
-            }
-            catch (Exception)
-            {
 
-            }
-            Options ??= new()
-            {
-                Pdf417 = Pdf417Only,
-                Decodeonce = Decodeonce,
-                DecodeAllFormats = DecodeAllFormats,
-                Screenshot = Screenshot,
-                StreamFromZxing = StreamFromZxing,
-                DeviceID = DeviceID,
-                //TRY_HARDER = true
-            };
-            await Module.InvokeVoidAsync("init", Instance, Element, Element.Id, Options, DeviceID);
+            Storage ??= new StorageService(JSRuntime);
+            Module = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/ZXingBlazor/BarcodeReader.razor.js"
+                + "?v=" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
+
+            Instance = DotNetObjectReference.Create(this);
+            
+        await Module.InvokeVoidAsync("init", Instance, Element, Element.Id, Options, DeviceID);
         }
         catch (Exception e)
         {
             if (OnError != null) await OnError.Invoke(e.Message);
         }
-
     }
 
     public async Task Start()
     {
-        await Module!.InvokeVoidAsync("start", Element.Id);
+        if (Module is null) return;
+        await Module.InvokeVoidAsync("start", Element.Id);
     }
 
     public async Task Stop()
     {
-        await Module!.InvokeVoidAsync("stop", Element.Id);
+        if (Module is null) return;
+        await Module.InvokeVoidAsync("stop", Element.Id);
     }
 
     public async Task Reload()
     {
-        await Module!.InvokeVoidAsync("reload", Element.Id);
+        if (Module is null) return;
+        await Module.InvokeVoidAsync("reload", Element.Id);
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (Module is not null)
+        {
+            try
+            {
+                await Module.InvokeVoidAsync("destroy", Element.Id);
+                await Module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (ObjectDisposedException) { }
+        }
+
+        Instance?.Dispose();
     }
 
     [JSInvokable]
@@ -194,16 +201,6 @@ public partial class BarcodeReader : IAsyncDisposable
     public async Task GetError(string err)
     {
         if (OnError != null) await OnError.Invoke(err);
-    }
-
-    async ValueTask IAsyncDisposable.DisposeAsync()
-    {
-        await Module!.InvokeVoidAsync("destroy", Element.Id);
-        Instance?.Dispose();
-        if (Module is not null)
-        {
-            await Module.DisposeAsync();
-        }
     }
 
     /// <summary>
@@ -263,7 +260,7 @@ public partial class BarcodeReader : IAsyncDisposable
 
         public static T? GetValueI<T>(string value)
         {
-            TypeConverter converter = TypeDescriptor.GetConverter(typeof(T));
+            var converter = TypeDescriptor.GetConverter(typeof(T));
             if (converter != null)
             {
                 return (T?)converter.ConvertFrom(value);

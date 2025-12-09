@@ -1,4 +1,4 @@
-import '/_content/ZXingBlazor/lib/zxing/zxing.min.js';
+﻿import '/_content/ZXingBlazor/lib/zxing/zxing.min.js';
 let codeReader = null;
 let id = null;
 let supportsVibrate = false;
@@ -152,121 +152,63 @@ export function load(elementid) {
                         if (selectedDeviceId == null) {
                             navigator.mediaDevices.enumerateDevices()
                                 .then((devices) => {
-                                    let videoInputDevices=[];
+                                    let videoInputDevices = [];
                                     devices.forEach((device) => {
                                         if (device.kind === 'videoinput') {
                                             videoInputDevices.push(device);
                                         }
                                     });
+
                                     if (deviceID != null) {
-                                        selectedDeviceId = deviceID
+                                        selectedDeviceId = deviceID;
                                     } else if (videoInputDevices.length > 1) {
-                                        selectedDeviceId = videoInputDevices[1].deviceId
+                                        selectedDeviceId = videoInputDevices[1].deviceId;
                                     } else {
-                                        selectedDeviceId = videoInputDevices[0].deviceId
+                                        selectedDeviceId = videoInputDevices[0].deviceId;
                                     }
+
                                     if (debug) console.log('videoInputDevices:' + videoInputDevices.length);
+
                                     if (videoInputDevices.length > 1) {
                                         sourceSelect.innerHTML = '';
                                         videoInputDevices.forEach((device) => {
                                             const sourceOption = document.createElement('option');
-                                            if (device.label === '') {
-                                                sourceOption.text = 'Camera' + (sourceSelect.length + 1);
-                                            } else {
-                                                sourceOption.text = device.label
-                                            }
-                                            sourceOption.value = device.deviceId
+                                            sourceOption.text = device.label || ('Camera' + (sourceSelect.length + 1));
+                                            sourceOption.value = device.deviceId;
                                             if (selectedDeviceId != null && device.deviceId == selectedDeviceId) {
-                                                sourceOption.selected = true
+                                                sourceOption.selected = true;
                                             }
-                                            sourceSelect.appendChild(sourceOption)
+                                            sourceSelect.appendChild(sourceOption);
                                         });
 
                                         sourceSelect.onchange = () => {
                                             selectedDeviceId = sourceSelect.value;
-                                            instance.invokeMethodAsync('SelectDeviceID', selectedDeviceId, sourceSelect.options[sourceSelect.selectedIndex].text);
+                                            instance.invokeMethodAsync('SelectDeviceID',
+                                                selectedDeviceId,
+                                                sourceSelect.options[sourceSelect.selectedIndex].text);
                                             codeReader.reset();
                                             start(elementid);
-                                        }
+                                        };
 
-                                        sourceSelectPanel.style.display = 'block'
-
+                                        sourceSelectPanel.style.display = 'block';
                                     }
 
+                                    // *** immer starten, wenn wir hier sind ***
                                     start(elementid);
-
                                 })
                                 .catch((err) => {
                                     console.error(`${err.name}: ${err.message}`);
                                 });
+                        } else {
+                            // *** NEU: wenn es schon ein selectedDeviceId gibt, trotzdem starten ***
+                            if (debug) console.log('using stored device id', selectedDeviceId);
+                            start(elementid);
                         }
                     })
                     .catch((err) => {
                         console.error(`An error occurred: ${err}`);
                         instance.invokeMethodAsync('GetError', `An error occurred: ${err}`);
                     });
-
-            }
-
-
-        } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices
-                .getUserMedia({ audio: false, video: true })
-                .then(() => {
-
-                    codeReader.listVideoInputDevices()
-                        .then((videoInputDevices) => {
-                            if (deviceID != null) {
-                                selectedDeviceId = deviceID
-                            } else if (videoInputDevices.length > 1) {
-                                selectedDeviceId = videoInputDevices[1].deviceId
-                            } else {
-                                selectedDeviceId = videoInputDevices[0].deviceId
-                            }
-                            if (debug) console.log('videoInputDevices:' + videoInputDevices.length);
-                            if (videoInputDevices.length > 1) {
-                                sourceSelect.innerHTML = '';
-                                videoInputDevices.forEach((device) => {
-                                    const sourceOption = document.createElement('option');
-                                    if (device.label === '') {
-                                        sourceOption.text = 'Camera' + (sourceSelect.length + 1);
-                                    } else {
-                                        sourceOption.text = device.label
-                                    }
-                                    sourceOption.value = device.deviceId
-                                    if (selectedDeviceId != null && device.deviceId == selectedDeviceId) {
-                                        sourceOption.selected = true
-                                    }
-                                    sourceSelect.appendChild(sourceOption)
-                                })
-
-                                sourceSelect.onchange = () => {
-                                    selectedDeviceId = sourceSelect.value;
-                                    instance.invokeMethodAsync('SelectDeviceID', selectedDeviceId, sourceSelect.options[sourceSelect.selectedIndex].text);
-                                    codeReader.reset();
-                                    start(elementid);
-                                }
-
-                                sourceSelectPanel.style.display = 'block'
-                            }
-
-                            start(elementid);
-
-                        })
-                        .catch((err) => {
-                            console.log(err)
-                            instance.invokeMethodAsync("GetError", err + '');
-                        })
-
-                })
-                .catch((err) => {
-                    console.error(`An error occurred: ${err}`);
-                    instance.invokeMethodAsync('GetError', `An error occurred: ${err}`);
-                });
-
-        }
-    }
-}
 
 export function start(elementid) {
     if (undefined !== codeReader && null !== codeReader && id == elementid) {
