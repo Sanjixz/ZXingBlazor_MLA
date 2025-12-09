@@ -3,7 +3,7 @@
     <PropertyGroup>
         <PackageId>QrScanner</PackageId>
         <LangVersion>latest</LangVersion>
-        <Version>1.1.0</Version>
+        <Version>1.1.1</Version>
         <Authors>AHU</Authors>
         <Company>MUVA</Company>
         <OutputPath>..\..\..\Bin</OutputPath>
