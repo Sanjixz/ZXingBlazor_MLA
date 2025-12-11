@@ -1,32 +1,22 @@
 ﻿@namespace ZXingBlazor.Components
 
+
 <div class="modal-body" @ref="Element" data-action="startButton">
-    <div data-action="sourceSelectPanel" style="display:none">
-        <label for="sourceSelect" style="display: none">@SelectDeviceBtnTitle</label>
-        <select data-action="sourceSelect" style="max-width:100%; display: none" class="form-select form-control">
-        </select>
-    </div>
-
-    <!-- NEU: enger Wrapper um Video + Scan-Frame -->
-    <div class="video-container">
-        <video data-action="video"
-               id="video"
-               muted
-               webkit-playsinline
-               playsinline
-               x-webkit-airplay="allow"
-               x5-video-player-type="h5"
-               x5-video-player-fullscreen="true"
-               style="min-height:80vh;max-height:100%; max-width: 100%;border: 1px solid gray">
-        </video>
-
-        <!-- 🔴 Scan Box -->
-        <div class="scan-frame"></div>
-
-        <!-- 🔳 Abdunkelung -->
-        <div class="shade shade-top"></div>
-        <div class="shade shade-bottom"></div>
-        <div class="shade shade-left"></div>
-        <div class="shade shade-right"></div>
-    </div>
-</div>
+  <div data-action="sourceSelectPanel" style="display:none">
+     <label for="sourceSelect" style="display: none">@SelectDeviceBtnTitle</label>
+     <select data-action="sourceSelect" style="max-width:100%; display: none" class="form-select form-control">
+      </select>
+  </div>
+  <div>
+      <video data-action="video"
+             id="video"
+             muted
+             webkit-playsinline
+             playsinline
+             x-webkit-airplay="allow"
+             x5-video-player-type="h5"
+             x5-video-player-fullscreen="true"
+             style="min-height:80vh;max-height:100%; max-width: 100%;border: 1px solid gray">
+      </video>
+  </div>
+</div>        
