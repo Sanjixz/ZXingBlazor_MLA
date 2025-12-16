@@ -198,11 +198,28 @@ public partial class BarcodeReader : IAsyncDisposable
 
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
-        await Module!.InvokeVoidAsync("destroy", Element.Id);
+        // Erst die Instanz aufräumen
         Instance?.Dispose();
-        if (Module is not null)
+
+        // Wenn das JS-Modul nie geladen wurde, hier einfach rausgehen
+        if (Module is null)
+            return;
+
+        try
         {
+            // Nur aufrufen, wenn wir wirklich ein Element mit Id haben
+            if (!string.IsNullOrEmpty(Element.Id))
+            {
+                // destroy erwartet ein Objekt mit id-Eigenschaft
+                await Module.InvokeVoidAsync("destroy", new { id = Element.Id });
+            }
+
             await Module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Ignorieren: tritt auf, wenn der Benutzer die Seite schließt,
+            // bevor der JS-Interop fertig ist (bei Blazor Server typisch).
         }
     }
 
