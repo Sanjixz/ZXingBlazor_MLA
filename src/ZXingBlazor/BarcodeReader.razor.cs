@@ -1,4 +1,4 @@
-﻿// ********************************** 
+﻿﻿// ********************************** 
 // Densen Informatica 中讯科技 
 // 作者：Alex Chow
 // e-mail:zhouchuanglin@gmail.com 
@@ -50,7 +50,7 @@ public partial class BarcodeReader : IAsyncDisposable
     /// 选择设备按钮文本/Select device button title
     /// </summary>
     [Parameter]
-    public string SelectDeviceBtnTitle { get; set; } = string.Empty;
+    public string SelectDeviceBtnTitle { get; set; } = "选择设备";
 
     /// <summary>
     /// 扫码结果回调方法/Scan result callback method
@@ -133,23 +133,23 @@ public partial class BarcodeReader : IAsyncDisposable
     [Parameter]
     public bool StreamFromZxing { get; set; }
 
+    private readonly string _hostId = $"zxing-host-{Guid.NewGuid():N}";
+    private TaskCompletionSource<bool> _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     // To prevent making JavaScript interop calls during prerendering
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender) return;
+
         try
         {
-            if (!firstRender) return;
-            Storage ??= new StorageService(JSRuntime);
-            Module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/ZXingBlazor/BarcodeReader.razor.js" + "?v=" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
-            Instance = DotNetObjectReference.Create(this);
-            try
-            {
-                if (SaveDeviceID) DeviceID = await Storage.GetValue("CamsDeviceID", DeviceID);
-            }
-            catch (Exception)
-            {
+            Module = await JSRuntime!.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/ZXingBlazor/BarcodeReader.razor.js?v=" +
+                System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
 
-            }
+            Instance = DotNetObjectReference.Create(this);
+
             Options ??= new()
             {
                 Pdf417 = Pdf417Only,
@@ -158,34 +158,46 @@ public partial class BarcodeReader : IAsyncDisposable
                 Screenshot = Screenshot,
                 StreamFromZxing = StreamFromZxing,
                 DeviceID = DeviceID,
-                //TRY_HARDER = true
             };
-            await Module.InvokeVoidAsync("init", Instance, Element, Element.Id, Options, DeviceID);
-        }
-        catch (Exception e)
-        {
-            if (OnError != null) await OnError.Invoke(e.Message);
-        }
 
+            // ✅ Wichtig: _hostId statt Element.Id
+            await Module.InvokeVoidAsync("init", Instance, Element, _hostId, Options, DeviceID);
+
+            _ready.TrySetResult(true);
+        }
+        catch (Exception ex)
+        {
+            _ready.TrySetException(ex);
+            if (OnError != null) await OnError.Invoke($"init/import failed: {ex.Message}");
+        }
     }
 
     public async Task Start()
     {
-        await Module!.InvokeVoidAsync("start", Element.Id);
+        await _ready.Task;                 // ✅ wartet bis init fertig
+        await Module!.InvokeVoidAsync("start", _hostId);
     }
 
     public async Task Stop()
     {
-        await Module!.InvokeVoidAsync("stop", Element.Id);
+        if (!_ready.Task.IsCompletedSuccessfully) return; // wenn nie gestartet: nix tun
+        await Module!.InvokeVoidAsync("stop", _hostId);
     }
 
     public async Task Reload()
     {
-        await Module!.InvokeVoidAsync("reload", Element.Id);
+        await _ready.Task;
+        await Module!.InvokeVoidAsync("reload", _hostId);
     }
 
     [JSInvokable]
-    public async Task GetResult(string val) => await ScanResult.InvokeAsync(val);
+    public async Task GetResult(string val)
+    {
+        // ✅ Stop VOR Callback (mobile-stabil)
+        await Stop();
+        await Task.Delay(50);
+        await ScanResult.InvokeAsync(val);
+    }
 
     [JSInvokable]
     public async Task CloseScan() => await Close.InvokeAsync();
@@ -198,28 +210,19 @@ public partial class BarcodeReader : IAsyncDisposable
 
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
-        // Erst die Instanz aufräumen
         Instance?.Dispose();
 
-        // Wenn das JS-Modul nie geladen wurde, hier einfach rausgehen
-        if (Module is null)
-            return;
+        if (Module is null) return;
 
         try
         {
-            // Nur aufrufen, wenn wir wirklich ein Element mit Id haben
-            if (!string.IsNullOrEmpty(Element.Id))
-            {
-                // destroy erwartet ein Objekt mit id-Eigenschaft
-                await Module.InvokeVoidAsync("destroy", new { id = Element.Id });
-            }
-
+            // destroy nimmt je nach JS evtl string oder obj – string probieren:
+            await Module.InvokeVoidAsync("destroy", _hostId);
             await Module.DisposeAsync();
         }
         catch (JSDisconnectedException)
         {
-            // Ignorieren: tritt auf, wenn der Benutzer die Seite schließt,
-            // bevor der JS-Interop fertig ist (bei Blazor Server typisch).
+            // ok bei Blazor Server Navigation/Disconnect
         }
     }
 
